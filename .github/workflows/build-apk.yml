@@ -25,16 +25,21 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Install App Engine & Notification Plugin
+      - name: Prepare Web Folder & Install Plugins
         run: |
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/splash-screen @capacitor/local-notifications
-          npx cap init "Lalitha Sri Tailors" "com.lalithasri.tailors" --web-dir .
+          
+          # THE FIX: Isolate the HTML file so Android doesn't crash copying itself
+          mkdir www
+          cp index.html www/
+          
+          npx cap init "Lalitha Sri Tailors" "com.lalithasri.tailors" --web-dir www
           
           echo '{
             "appId": "com.lalithasri.tailors",
             "appName": "Lalitha Sri Tailors",
-            "webDir": ".",
+            "webDir": "www",
             "plugins": {
               "SplashScreen": {
                 "launchShowDuration": 2500,
@@ -53,6 +58,7 @@ jobs:
 
       - name: Generate Custom Frequency Tone (800Hz)
         run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
           mkdir -p android/app/src/main/res/raw
           ffmpeg -f lavfi -i "sine=frequency=800:duration=1.5" -c:a pcm_s16le android/app/src/main/res/raw/tone.wav
 
