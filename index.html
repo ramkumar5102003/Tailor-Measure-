@@ -5,34 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>లలితా శ్రీ టైలర్స్</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body { font-family: sans-serif; background-color: #f0f2f5; padding: 10px; margin: 0; }
         .app-container { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto 20px auto; }
         
-        .header { text-align: center; margin-bottom: 15px; }
+        #pinScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f2f5; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pin-box { background: #fff; border: 3px solid #d32f2f; padding: 30px; border-radius: 10px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .pin-input { font-size: 24px; letter-spacing: 15px; width: 120px; text-align: center; padding: 10px; margin: 15px 0; border: 2px solid #ccc; border-radius: 5px;}
+        .pin-btn { background:#d32f2f; color:white; font-size:18px; font-weight:bold; padding:10px 30px; border:none; border-radius:5px; cursor:pointer; }
+        
+        .header { text-align: center; margin-bottom: 10px; position: relative; }
         .shop-name { color: #d32f2f; font-size: 26px; margin: 10px 0 5px 0; font-weight: bold; }
-        .subtitle { color: #555; font-size: 14px; }
+        .subtitle { color: #555; font-size: 14px; margin-bottom: 10px; }
+        .btn-change-pin { background: #ff9800; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: bold; }
         
         .nav-bar { display: flex; justify-content: space-between; align-items: center; background: #e9ecef; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
         .nav-bar input { width: 60px; padding: 8px; text-align: center; font-weight: bold; }
         .nav-btn { background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; }
         
+        .time-display { color: #28a745; font-size: 13px; font-weight: bold; text-align: center; margin-bottom: 10px; min-height: 18px; }
+        
         h3 { background: #d32f2f; color: white; padding: 10px; border-radius: 5px; font-size: 16px; margin-top: 20px; text-align: center; }
         .customer-sec { margin-bottom: 15px; }
         .customer-sec input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-size: 16px; margin-top: 5px; }
+        .delivery-box { background: #fff3cd; border-color: #ffeeba; }
         label { font-size: 13px; color: #555; font-weight: bold; }
         
         .measure-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
         .input-group { display: flex; flex-direction: column; }
         .measure-grid input { padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; }
+        .locked-input { background-color: #e9ecef; cursor: not-allowed; color: #999; }
 
         .action-btns { display: flex; gap: 10px; margin-top: 20px; }
-        button { flex: 1; padding: 14px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; }
-        .btn-success { background-color: #28a745; }
-        .btn-share { background-color: #25D366; } 
-        .btn-new { background-color: #17a2b8; margin-top: 10px; width: 100%; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; }
+        .btn-success { background-color: #28a745; flex: 1; }
+        .btn-share { background-color: #25D366; flex: 1; } 
+        .btn-new { background-color: #17a2b8; margin-top: 10px; }
+        .btn-excel { background-color: #107c41; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; }
         
-        /* Hidden Receipt Style */
         #receiptWrapper { position: absolute; left: -9999px; top: 0; }
         #receiptCard { width: 350px; padding: 25px; background: #fff; border: 4px solid #d32f2f; border-radius: 10px; text-align: center; font-family: sans-serif; }
         #receiptCard h2 { color: #d32f2f; margin: 0 0 10px 0; font-size: 28px; }
@@ -42,11 +53,24 @@
 </head>
 <body>
 
+<div id="pinScreen">
+    <div class="pin-box">
+        <h2 style="color:#d32f2f; margin-top:0;">లలితా శ్రీ టైలర్స్</h2>
+        <p style="color:#555; font-weight:bold;">దయచేసి యాప్ PIN నమోదు చేయండి</p>
+        <input type="password" id="appPinInput" class="pin-input" maxlength="4" placeholder="****" inputmode="numeric">
+        <br>
+        <button class="pin-btn" onclick="window.unlockApp()">అన్‌లాక్ (Unlock)</button>
+    </div>
+</div>
+
 <div class="app-container">
     <div class="header">
         <div class="shop-name">లలితా శ్రీ టైలర్స్</div>
         <div class="subtitle">(Lalitha Sri Tailors)</div>
+        <button class="btn-change-pin" onclick="window.changeAppPin()">⚙️ పిన్ మార్చండి</button>
     </div>
+
+    <button class="btn-excel" onclick="window.exportToExcel()">📊 ఎక్సెల్‌లో డౌన్‌లోడ్ చేయండి</button>
 
     <div class="nav-bar">
         <button class="nav-btn" onclick="window.goPrevious()">&#8592; Previous</button>
@@ -57,39 +81,47 @@
         </div>
     </div>
 
+    <div id="saveTimeLabel" class="time-display"></div>
+
     <div class="customer-sec">
         <label>కస్టమర్ పేరు (Name):</label>
         <input type="text" id="custName" placeholder="పేరు నమోదు చేయండి">
         <br><br>
+        
+        <label>డెలివరీ తేదీ (Delivery Date):</label>
+        <input type="date" id="deliveryDate" class="delivery-box" required>
+        <br><br>
+
         <label>మొబైల్ నంబర్ (Mobile):</label>
-        <input type="tel" id="custMobile" placeholder="ఖచ్చితంగా 10 అంకెలు" maxlength="10" minlength="10" pattern="\d{10}" oninput="this.value = this.value.replace(/[^0-9]/g, '')" required>
+        <input type="tel" id="custMobile" placeholder="ఖచ్చితంగా 10 అంకెలు" maxlength="10" minlength="10" oninput="window.checkMobileLength()" required>
+        <p id="mobileWarning" style="color: red; font-size: 12px; margin-top: 5px;">10 అంకెల మొబైల్ నంబర్ నమోదు చేస్తేనే కొలతలు తెరవబడతాయి.</p>
     </div>
 
     <h3>షర్ట్ కొలతలు (Shirt)</h3>
     <div class="measure-grid">
-        <div class="input-group"><label>a. పొడవు</label><input type="text" id="s_a"></div>
-        <div class="input-group"><label>b. భుజం</label><input type="text" id="s_b"></div>
-        <div class="input-group"><label>c. చేతి పొడవు</label><input type="text" id="s_c"></div>
-        <div class="input-group"><label>d. చేతి లూజు</label><input type="text" id="s_d"></div>
-        <div class="input-group"><label>e. చంక</label><input type="text" id="s_e"></div>
-        <div class="input-group"><label>f. ఛాతీ</label><input type="text" id="s_f"></div>
-        <div class="input-group"><label>g. పై భాగం</label><input type="text" id="s_g"></div>
-        <div class="input-group"><label>h. మధ్య</label><input type="text" id="s_h"></div>
-        <div class="input-group"><label>i. కింది</label><input type="text" id="s_i"></div>
-        <div class="input-group"><label>j. కాలర్</label><input type="text" id="s_j"></div>
+        <div class="input-group"><label>a. పొడవు</label><input type="text" id="s_a" disabled class="locked-input"></div>
+        <div class="input-group"><label>b. భుజం</label><input type="text" id="s_b" disabled class="locked-input"></div>
+        <div class="input-group"><label>c. చేతి పొడవు</label><input type="text" id="s_c" disabled class="locked-input"></div>
+        <div class="input-group"><label>d. చేతి లూజు</label><input type="text" id="s_d" disabled class="locked-input"></div>
+        <div class="input-group"><label>e. చంక</label><input type="text" id="s_e" disabled class="locked-input"></div>
+        <div class="input-group"><label>f. ఛాతీ</label><input type="text" id="s_f" disabled class="locked-input"></div>
+        <div class="input-group"><label>g. పై భాగం</label><input type="text" id="s_g" disabled class="locked-input"></div>
+        <div class="input-group"><label>h. మధ్య</label><input type="text" id="s_h" disabled class="locked-input"></div>
+        <div class="input-group"><label>i. కింది</label><input type="text" id="s_i" disabled class="locked-input"></div>
+        <div class="input-group"><label>j. కాలర్</label><input type="text" id="s_j" disabled class="locked-input"></div>
     </div>
 
     <h3>ప్యాంట్ కొలతలు (Pant)</h3>
     <div class="measure-grid">
-        <div class="input-group"><label>i. పొడవు</label><input type="text" id="p_i"></div>
-        <div class="input-group"><label>ii. జాయింట్ పొడవు</label><input type="text" id="p_ii"></div>
-        <div class="input-group"><label>iii. నడుము</label><input type="text" id="p_iii"></div>
-        <div class="input-group"><label>iv. హిప్</label><input type="text" id="p_iv"></div>
-        <div class="input-group"><label>v. తొడ</label><input type="text" id="p_v"></div>
-        <div class="input-group"><label>v(a). కిస్తా (Kista)</label><input type="text" id="p_kista"></div>
-        <div class="input-group"><label>vi. మోకాలు</label><input type="text" id="p_vi"></div>
-        <div class="input-group"><label>vii. జాయింట్ లెక్</label><input type="text" id="p_vii"></div>
-        <div class="input-group"><label>viii. పాదం</label><input type="text" id="p_viii"></div>
+        <div class="input-group"><label>i. పొడవు</label><input type="text" id="p_i" disabled class="locked-input"></div>
+        <div class="input-group"><label>ii. జాయింట్ పొడవు</label><input type="text" id="p_ii" disabled class="locked-input"></div>
+        <div class="input-group"><label>iii. నడుము</label><input type="text" id="p_iii" disabled class="locked-input"></div>
+        <div class="input-group"><label>iv. హిప్</label><input type="text" id="p_iv" disabled class="locked-input"></div>
+        <div class="input-group"><label>iv(a). కిస్తా</label><input type="text" id="p_kista" disabled class="locked-input"></div>
+        <div class="input-group"><label>v. తొడ</label><input type="text" id="p_v" disabled class="locked-input"></div>
+        <div class="input-group"><label>vi. మోకాలు</label><input type="text" id="p_vi" disabled class="locked-input"></div>
+        <div class="input-group"><label>vii. జాయింట్ లెక్</label><input type="text" id="p_vii" disabled class="locked-input"></div>
+        <div class="input-group"><label>viii. పాదం</label><input type="text" id="p_viii" disabled class="locked-input"></div>
     </div>
 
     <div class="action-btns">
@@ -103,44 +135,68 @@
 <div id="receiptWrapper">
     <div id="receiptCard">
         <h2>లలితా శ్రీ టైలర్స్</h2>
-        <div style="color: #666; font-size: 14px;">కస్టమర్ రసీదు (Receipt)</div>
+        <div style="color: #666; font-size: 14px;">కస్టమర్ రసీదు</div>
         <hr style="border: 1px solid #eee; margin: 15px 0;">
         <div class="details">
             <p><b>S.No:</b> <span id="r_sno"></span></p>
             <p><b>పేరు:</b> <span id="r_name"></span></p>
             <p><b>మొబైల్:</b> <span id="r_mobile"></span></p>
+            <p style="color:#d32f2f;"><b>డెలివరీ:</b> <span id="r_delivery"></span></p>
         </div>
         <div class="status">స్టేటస్: బుక్ చేయబడింది</div>
     </div>
 </div>
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
-
-    // 🔴 1. PASTE YOUR FIREBASE CONFIG HERE 🔴
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT.firebaseapp.com",
-        projectId: "YOUR_PROJECT",
-        storageBucket: "YOUR_PROJECT.appspot.com",
-        messagingSenderId: "123456789",
-        appId: "1:123456789:web:abcdef"
-    };
-
-    // 🔴 2. PASTE YOUR GOOGLE SHEETS WEB APP URL HERE 🔴
-    const GOOGLE_SHEET_BACKUP_URL = "YOUR_GOOGLE_WEB_APP_URL_HERE";
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+<script>
+    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbx3iJyEKnoUwkqOBhQUEsdmwvOJlbOtNOVoi2eKMglOnDjF_YR2nkM7My4zzxJ9XmDy/exec";
 
     let currentSno = 1;
     let maxSno = 1;
     let bookData = JSON.parse(localStorage.getItem("lalithaTailorBook")) || [];
     
+    let savedPin = localStorage.getItem("lalithaAppPin") || "4443";
+    
+    window.unlockApp = function() {
+        let enteredPin = document.getElementById("appPinInput").value;
+        if(enteredPin === savedPin) {
+            document.getElementById("pinScreen").style.display = "none";
+        } else {
+            alert("తప్పు పిన్! (Wrong PIN)");
+            document.getElementById("appPinInput").value = "";
+        }
+    };
+
+    window.changeAppPin = function() {
+        let oldPin = prompt("పాత పిన్ (Old PIN) నమోదు చేయండి:");
+        if(oldPin === savedPin) {
+            let newPin = prompt("కొత్త 4-అంకెల పిన్ (New PIN) నమోదు చేయండి:");
+            if(newPin && newPin.length >= 4) {
+                localStorage.setItem("lalithaAppPin", newPin);
+                savedPin = newPin;
+                alert("పిన్ విజయవంతంగా మార్చబడింది!");
+            }
+        }
+    };
+
+    window.checkMobileLength = function() {
+        let mobileBox = document.getElementById("custMobile");
+        mobileBox.value = mobileBox.value.replace(/[^0-9]/g, ''); 
+        let measureInputs = document.querySelectorAll('.measure-grid input');
+        let warningText = document.getElementById("mobileWarning");
+
+        if (mobileBox.value.length === 10) {
+            warningText.style.display = "none";
+            measureInputs.forEach(input => { input.disabled = false; input.classList.remove('locked-input'); });
+        } else {
+            warningText.style.display = "block";
+            measureInputs.forEach(input => { input.disabled = true; input.classList.add('locked-input'); });
+        }
+    };
+
     maxSno = bookData.length + 1;
     currentSno = maxSno;
     document.getElementById("searchSno").value = currentSno;
+    window.checkMobileLength(); 
 
     window.startNewCustomer = function() {
         maxSno = bookData.length + 1;
@@ -148,23 +204,62 @@
         document.getElementById("searchSno").value = currentSno;
         document.getElementById("custName").value = "";
         document.getElementById("custMobile").value = "";
+        document.getElementById("deliveryDate").value = "";
+        document.getElementById("saveTimeLabel").innerText = "";
         document.querySelectorAll('.measure-grid input').forEach(input => input.value = "");
+        window.checkMobileLength(); 
     };
 
-    window.saveCustomer = async function() {
+    // --- CUSTOM TONE NOTIFICATION ENGINE ---
+    async function scheduleDeliveryAlert(customerName, deliveryDateString) {
+        if (!window.Capacitor || !window.Capacitor.Plugins.LocalNotifications) return;
+        
+        try {
+            await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
+            
+            // Create a specific channel that forces the custom tone
+            await window.Capacitor.Plugins.LocalNotifications.createChannel({
+                id: 'lalitha_delivery_alerts',
+                name: 'Delivery Alerts',
+                description: 'Notifications for upcoming deliveries',
+                importance: 5, // Maximum importance so it pops up on screen
+                visibility: 1,
+                sound: 'tone.wav' // Our generated 800Hz beep!
+            });
+            
+            // Set alert for 9:00 AM the day BEFORE delivery
+            let delDate = new Date(deliveryDateString);
+            delDate.setDate(delDate.getDate() - 1); 
+            delDate.setHours(9, 0, 0, 0); 
+            
+            if (delDate.getTime() > Date.now()) {
+                await window.Capacitor.Plugins.LocalNotifications.schedule({
+                    notifications: [
+                        {
+                            title: "డెలివరీ రిమైండర్! ✂️",
+                            body: `రేపు ${customerName} గారి బట్టలు డెలివరీ చేయాలి.`,
+                            id: Math.floor(Math.random() * 100000),
+                            schedule: { at: delDate },
+                            smallIcon: "ic_stat_icon_config_sample",
+                            channelId: 'lalitha_delivery_alerts', // Link to our custom tone channel
+                            sound: 'tone.wav'
+                        }
+                    ]
+                });
+            }
+        } catch(e) { console.log("Notifications skipped on web."); }
+    }
+
+    window.saveCustomer = function() {
         let name = document.getElementById("custName").value.trim();
         let mobile = document.getElementById("custMobile").value.trim();
+        let delDate = document.getElementById("deliveryDate").value;
         
-        if (name === "") { 
-            alert("కస్టమర్ పేరు తప్పనిసరిగా నమోదు చేయాలి!"); 
-            return; 
-        }
-        
-        // STRICT 10-DIGIT RULE
-        if (mobile.length !== 10) {
-            alert("ఎర్రర్: దయచేసి ఖచ్చితంగా 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి.");
-            return;
-        }
+        if (name === "" || delDate === "") { alert("పేరు మరియు డెలివరీ తేదీ తప్పనిసరి!"); return; }
+        if (mobile.length !== 10) { alert("ఖచ్చితంగా 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి."); return; }
+
+        let exactDateTime = new Date().toLocaleString('en-IN'); 
+        let combinedGoogleSheetDate = "Saved: " + exactDateTime + " | Del: " + delDate;
 
         let customerData = {
             sno: currentSno, name: name, mobile: mobile,
@@ -178,36 +273,40 @@
             pant: {
                 i: document.getElementById("p_i").value, ii: document.getElementById("p_ii").value,
                 iii: document.getElementById("p_iii").value, iv: document.getElementById("p_iv").value,
-                v: document.getElementById("p_v").value, kista: document.getElementById("p_kista").value,
+                kista: document.getElementById("p_kista").value, 
+                v: document.getElementById("p_v").value,
                 vi: document.getElementById("p_vi").value, vii: document.getElementById("p_vii").value, 
                 viii: document.getElementById("p_viii").value
             },
-            timestamp: new Date().toISOString()
+            timestamp: combinedGoogleSheetDate,
+            rawDeliveryDate: delDate 
         };
 
         if (currentSno <= bookData.length) { bookData[currentSno - 1] = customerData; } 
         else { bookData.push(customerData); maxSno = bookData.length + 1; }
+        
         localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
+        document.getElementById("saveTimeLabel").innerText = "డెలివరీ: " + delDate;
+
+        // Trigger the Audio Alarm
+        scheduleDeliveryAlert(name, delDate);
 
         let btn = document.getElementById("saveBtn");
         btn.innerHTML = "సేవ్ అవుతోంది...";
 
-        try {
-            await setDoc(doc(db, "customers", currentSno.toString()), customerData);
-            
-            if (GOOGLE_SHEET_BACKUP_URL !== "YOUR_GOOGLE_WEB_APP_URL_HERE") {
-                fetch(GOOGLE_SHEET_BACKUP_URL, {
-                    method: "POST",
-                    body: JSON.stringify(customerData)
-                }).catch(e => console.log("Sheet backup failed, Firebase saved."));
-            }
-
+        fetch(GOOGLE_SHEET_URL, {
+            method: "POST",
+            body: JSON.stringify(customerData)
+        })
+        .then(response => {
             btn.innerHTML = "సేవ్ చేయబడింది!";
             setTimeout(() => { btn.innerHTML = "సేవ్ చేయండి"; window.startNewCustomer(); }, 1500);
-        } catch (e) {
-            alert("ఎర్రర్: క్లౌడ్‌లో సేవ్ కాలేదు. కానీ ఫోన్‌లో సేవ్ చేయబడింది.");
+        })
+        .catch(e => {
+            alert("ఇంటర్నెట్ లేదు: క్లౌడ్‌లో సేవ్ కాలేదు. కానీ ఫోన్‌లో సేవ్ చేయబడింది.");
             btn.innerHTML = "సేవ్ చేయండి";
-        }
+            window.startNewCustomer();
+        });
     };
 
     window.loadCustomerData = function(sno) {
@@ -218,17 +317,22 @@
             
             document.getElementById("custName").value = data.name;
             document.getElementById("custMobile").value = data.mobile || "";
+            document.getElementById("deliveryDate").value = data.rawDeliveryDate || "";
+            document.getElementById("saveTimeLabel").innerText = data.rawDeliveryDate ? "డెలివరీ: " + data.rawDeliveryDate : "";
             
-            document.getElementById("s_a").value = data.shirt.a; document.getElementById("s_b").value = data.shirt.b;
-            document.getElementById("s_c").value = data.shirt.c; document.getElementById("s_d").value = data.shirt.d;
-            document.getElementById("s_e").value = data.shirt.e; document.getElementById("s_f").value = data.shirt.f;
-            document.getElementById("s_g").value = data.shirt.g; document.getElementById("s_h").value = data.shirt.h;
-            document.getElementById("s_i").value = data.shirt.i; document.getElementById("s_j").value = data.shirt.j;
+            window.checkMobileLength();
 
-            document.getElementById("p_i").value = data.pant.i; document.getElementById("p_ii").value = data.pant.ii;
-            document.getElementById("p_iii").value = data.pant.iii; document.getElementById("p_iv").value = data.pant.iv;
-            document.getElementById("p_v").value = data.pant.v; document.getElementById("p_kista").value = data.pant.kista || "";
-            document.getElementById("p_vi").value = data.pant.vi; document.getElementById("p_vii").value = data.pant.vii; document.getElementById("p_viii").value = data.pant.viii;
+            document.getElementById("s_a").value = data.shirt.a || ""; document.getElementById("s_b").value = data.shirt.b || "";
+            document.getElementById("s_c").value = data.shirt.c || ""; document.getElementById("s_d").value = data.shirt.d || "";
+            document.getElementById("s_e").value = data.shirt.e || ""; document.getElementById("s_f").value = data.shirt.f || "";
+            document.getElementById("s_g").value = data.shirt.g || ""; document.getElementById("s_h").value = data.shirt.h || "";
+            document.getElementById("s_i").value = data.shirt.i || ""; document.getElementById("s_j").value = data.shirt.j || "";
+
+            document.getElementById("p_i").value = data.pant.i || ""; document.getElementById("p_ii").value = data.pant.ii || "";
+            document.getElementById("p_iii").value = data.pant.iii || ""; document.getElementById("p_iv").value = data.pant.iv || "";
+            document.getElementById("p_kista").value = data.pant.kista || ""; 
+            document.getElementById("p_v").value = data.pant.v || ""; 
+            document.getElementById("p_vi").value = data.pant.vi || ""; document.getElementById("p_vii").value = data.pant.vii || ""; document.getElementById("p_viii").value = data.pant.viii || "";
         } else { alert("ఈ S.No తో రికార్డు లేదు."); }
     };
 
@@ -242,6 +346,7 @@
         document.getElementById("r_sno").innerText = currentSno;
         document.getElementById("r_name").innerText = name;
         document.getElementById("r_mobile").innerText = document.getElementById("custMobile").value || "లేదు";
+        document.getElementById("r_delivery").innerText = document.getElementById("deliveryDate").value || "నిర్ణయించలేదు";
 
         try {
             let canvas = await html2canvas(document.getElementById("receiptCard"), { scale: 2 });
@@ -252,6 +357,23 @@
             });
         } catch (error) { alert("ఇమేజ్ జనరేట్ చేయడంలో ఎర్రర్."); }
     };
+
+    window.exportToExcel = function() {
+        if (bookData.length === 0) { alert("డేటా లేదు!"); return; }
+
+        let excelFormattedData = bookData.map(c => ({
+            "S.No": c.sno, "కస్టమర్ పేరు": c.name, "మొబైల్": c.mobile, "డెలివరీ తేదీ": c.rawDeliveryDate, "సేవ్ చేసిన సమయం": c.timestamp,
+            "షర్ట్: పొడవు": c.shirt.a, "షర్ట్: భుజం": c.shirt.b, "షర్ట్: చేతి పొడవు": c.shirt.c, "షర్ట్: చేతి లూజు": c.shirt.d,
+            "షర్ట్: చంక": c.shirt.e, "షర్ట్: ఛాతీ": c.shirt.f, "షర్ట్: పై భాగం": c.shirt.g, "షర్ట్: మధ్య": c.shirt.h, "షర్ట్: కింది": c.shirt.i, "షర్ట్: కాలర్": c.shirt.j,
+            "ప్యాంట్: పొడవు": c.pant.i, "ప్యాంట్: జాయింట్ పొడవు": c.pant.ii, "ప్యాంట్: నడుము": c.pant.iii, "ప్యాంట్: హిప్": c.pant.iv,
+            "ప్యాంట్: కిస్తా": c.pant.kista, "ప్యాంట్: తొడ": c.pant.v, "ప్యాంట్: మోకాలు": c.pant.vi, "ప్యాంట్: జాయింట్ లెక్": c.pant.vii, "ప్యాంట్: పాదం": c.pant.viii
+        }));
+
+        let worksheet = XLSX.utils.json_to_sheet(excelFormattedData);
+        let workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+        XLSX.writeFile(workbook, "LalithaSri_Tailors_Backup.xlsx");
+    };
 </script>
 </body>
-      </html>
+    </html>
