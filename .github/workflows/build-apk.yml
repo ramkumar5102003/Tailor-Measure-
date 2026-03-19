@@ -14,10 +14,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js (Upgraded to Node 22)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -28,7 +28,6 @@ jobs:
       - name: Prepare Web Folder & Install Plugins
         run: |
           npm init -y
-          # Forcing installation of the latest stable Capacitor 6 versions
           npm install @capacitor/core@latest @capacitor/cli@latest @capacitor/android@latest @capacitor/splash-screen@latest @capacitor/local-notifications@latest
           
           mkdir www
@@ -74,7 +73,6 @@ jobs:
 
       - name: Force Clean Sync Android Dependencies
         run: |
-          # This forces Android to fix any broken library links
           npx cap sync android
           npx cap update android
 
@@ -82,7 +80,6 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          # The clean command trashes broken files before building
           ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload Final APK
