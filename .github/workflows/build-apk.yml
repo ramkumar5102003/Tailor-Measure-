@@ -19,18 +19,17 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Setup Java
+      - name: Setup Java (Upgraded to Java 21)
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Prepare Web Folder & Install Plugins
         run: |
           npm init -y
           npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/splash-screen @capacitor/local-notifications
           
-          # THE FIX: Isolate the HTML file so Android doesn't crash copying itself
           mkdir www
           cp index.html www/
           
