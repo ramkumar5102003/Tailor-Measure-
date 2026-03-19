@@ -1,0 +1,80 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: 
+
+jobs:
+  build:
+    name: Compile APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install App Engine & Notification Plugin
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/splash-screen @capacitor/local-notifications
+          npx cap init "Lalitha Sri Tailors" "com.lalithasri.tailors" --web-dir .
+          
+          echo '{
+            "appId": "com.lalithasri.tailors",
+            "appName": "Lalitha Sri Tailors",
+            "webDir": ".",
+            "plugins": {
+              "SplashScreen": {
+                "launchShowDuration": 2500,
+                "launchAutoHide": true,
+                "backgroundColor": "#ffffff",
+                "showSpinner": false
+              },
+              "LocalNotifications": {
+                "smallIcon": "ic_stat_icon_config_sample",
+                "iconColor": "#d32f2f"
+              }
+            }
+          }' > capacitor.config.json
+          
+          npx cap add android
+
+      - name: Generate Custom Frequency Tone (800Hz)
+        run: |
+          mkdir -p android/app/src/main/res/raw
+          ffmpeg -f lavfi -i "sine=frequency=800:duration=1.5" -c:a pcm_s16le android/app/src/main/res/raw/tone.wav
+
+      - name: Setup Logo
+        run: |
+          npm install @capacitor/assets --save-dev
+          mkdir -p assets
+          if [ -f "logo.png" ]; then
+            cp logo.png assets/icon.png
+            cp logo.png assets/splash.png
+            npx @capacitor/assets generate --android
+          fi
+          npx cap sync android
+
+      - name: Compile the APK File
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Final APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LalithaSriTailors-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
