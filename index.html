@@ -15,10 +15,12 @@
         .pin-input { font-size: 24px; letter-spacing: 15px; width: 120px; text-align: center; padding: 10px; margin: 15px 0; border: 2px solid #ccc; border-radius: 5px;}
         .pin-btn { background:#d32f2f; color:white; font-size:18px; font-weight:bold; padding:10px 30px; border:none; border-radius:5px; cursor:pointer; }
         
-        .header { text-align: center; margin-bottom: 10px; position: relative; }
+        .header { text-align: center; margin-bottom: 5px; position: relative; }
         .shop-name { color: #d32f2f; font-size: 26px; margin: 10px 0 5px 0; font-weight: bold; }
-        .subtitle { color: #555; font-size: 14px; margin-bottom: 10px; }
+        .subtitle { color: #555; font-size: 14px; margin-bottom: 5px; }
         .btn-change-pin { background: #ff9800; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        
+        #syncStatus { text-align: center; font-size: 12px; font-weight: bold; padding: 5px; margin-bottom: 10px; border-radius: 5px; background: #e3f2fd; color: #1565c0; }
         
         .nav-bar { display: flex; justify-content: space-between; align-items: center; background: #e9ecef; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
         .nav-bar input { width: 60px; padding: 8px; text-align: center; font-weight: bold; }
@@ -69,6 +71,8 @@
         <div class="subtitle">(Lalitha Sri Tailors)</div>
         <button class="btn-change-pin" onclick="window.changeAppPin()">⚙️ పిన్ మార్చండి</button>
     </div>
+
+    <div id="syncStatus">☁️ క్లౌడ్ డేటా చెక్ చేయబడుతోంది...</div>
 
     <button class="btn-excel" onclick="window.exportToExcel()">📊 ఎక్సెల్‌లో డౌన్‌లోడ్ చేయండి</button>
 
@@ -153,13 +157,34 @@
     let currentSno = 1;
     let maxSno = 1;
     let bookData = JSON.parse(localStorage.getItem("lalithaTailorBook")) || [];
-    
     let savedPin = localStorage.getItem("lalithaAppPin") || "4443";
     
+    async function syncDataFromCloud() {
+        try {
+            let response = await fetch(GOOGLE_SHEET_URL);
+            let cloudData = await response.json();
+            
+            if(cloudData && cloudData.length > 0) {
+                bookData = cloudData; 
+                localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
+                maxSno = bookData.length + 1;
+                document.getElementById("syncStatus").innerText = "✅ క్లౌడ్‌తో సింక్ అయింది (Fully Synced)";
+                document.getElementById("syncStatus").style.background = "#e8f5e9";
+                document.getElementById("syncStatus").style.color = "#2e7d32";
+                window.startNewCustomer();
+            }
+        } catch(e) {
+            document.getElementById("syncStatus").innerText = "⚠️ ఇంటర్నెట్ లేదు - ఆఫ్‌లైన్ (Offline Mode)";
+            document.getElementById("syncStatus").style.background = "#ffebee";
+            document.getElementById("syncStatus").style.color = "#c62828";
+        }
+    }
+
     window.unlockApp = function() {
         let enteredPin = document.getElementById("appPinInput").value;
         if(enteredPin === savedPin) {
             document.getElementById("pinScreen").style.display = "none";
+            syncDataFromCloud(); 
         } else {
             alert("తప్పు పిన్! (Wrong PIN)");
             document.getElementById("appPinInput").value = "";
@@ -210,41 +235,24 @@
         window.checkMobileLength(); 
     };
 
-    // --- CUSTOM TONE NOTIFICATION ENGINE ---
     async function scheduleDeliveryAlert(customerName, deliveryDateString) {
         if (!window.Capacitor || !window.Capacitor.Plugins.LocalNotifications) return;
-        
         try {
             await window.Capacitor.Plugins.LocalNotifications.requestPermissions();
-            
-            // Create a specific channel that forces the custom tone
             await window.Capacitor.Plugins.LocalNotifications.createChannel({
-                id: 'lalitha_delivery_alerts',
-                name: 'Delivery Alerts',
-                description: 'Notifications for upcoming deliveries',
-                importance: 5, // Maximum importance so it pops up on screen
-                visibility: 1,
-                sound: 'tone.wav' // Our generated 800Hz beep!
+                id: 'lalitha_delivery_alerts', name: 'Delivery Alerts', description: 'Notifications for upcoming deliveries',
+                importance: 5, visibility: 1, sound: 'tone.wav' 
             });
-            
-            // Set alert for 9:00 AM the day BEFORE delivery
             let delDate = new Date(deliveryDateString);
             delDate.setDate(delDate.getDate() - 1); 
             delDate.setHours(9, 0, 0, 0); 
-            
             if (delDate.getTime() > Date.now()) {
                 await window.Capacitor.Plugins.LocalNotifications.schedule({
-                    notifications: [
-                        {
-                            title: "డెలివరీ రిమైండర్! ✂️",
-                            body: `రేపు ${customerName} గారి బట్టలు డెలివరీ చేయాలి.`,
-                            id: Math.floor(Math.random() * 100000),
-                            schedule: { at: delDate },
-                            smallIcon: "ic_stat_icon_config_sample",
-                            channelId: 'lalitha_delivery_alerts', // Link to our custom tone channel
-                            sound: 'tone.wav'
-                        }
-                    ]
+                    notifications: [{
+                        title: "డెలివరీ రిమైండర్! ✂️", body: `రేపు ${customerName} గారి బట్టలు డెలివరీ చేయాలి.`,
+                        id: Math.floor(Math.random() * 100000), schedule: { at: delDate },
+                        smallIcon: "ic_stat_icon_config_sample", channelId: 'lalitha_delivery_alerts', sound: 'tone.wav'
+                    }]
                 });
             }
         } catch(e) { console.log("Notifications skipped on web."); }
@@ -259,44 +267,28 @@
         if (mobile.length !== 10) { alert("ఖచ్చితంగా 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి."); return; }
 
         let exactDateTime = new Date().toLocaleString('en-IN'); 
-        let combinedGoogleSheetDate = "Saved: " + exactDateTime + " | Del: " + delDate;
 
         let customerData = {
             sno: currentSno, name: name, mobile: mobile,
-            shirt: {
-                a: document.getElementById("s_a").value, b: document.getElementById("s_b").value,
-                c: document.getElementById("s_c").value, d: document.getElementById("s_d").value,
-                e: document.getElementById("s_e").value, f: document.getElementById("s_f").value,
-                g: document.getElementById("s_g").value, h: document.getElementById("s_h").value,
-                i: document.getElementById("s_i").value, j: document.getElementById("s_j").value
-            },
-            pant: {
-                i: document.getElementById("p_i").value, ii: document.getElementById("p_ii").value,
-                iii: document.getElementById("p_iii").value, iv: document.getElementById("p_iv").value,
-                kista: document.getElementById("p_kista").value, 
-                v: document.getElementById("p_v").value,
-                vi: document.getElementById("p_vi").value, vii: document.getElementById("p_vii").value, 
-                viii: document.getElementById("p_viii").value
-            },
-            timestamp: combinedGoogleSheetDate,
-            rawDeliveryDate: delDate 
+            shirt: { a: document.getElementById("s_a").value, b: document.getElementById("s_b").value, c: document.getElementById("s_c").value, d: document.getElementById("s_d").value, e: document.getElementById("s_e").value, f: document.getElementById("s_f").value, g: document.getElementById("s_g").value, h: document.getElementById("s_h").value, i: document.getElementById("s_i").value, j: document.getElementById("s_j").value },
+            pant: { i: document.getElementById("p_i").value, ii: document.getElementById("p_ii").value, iii: document.getElementById("p_iii").value, iv: document.getElementById("p_iv").value, kista: document.getElementById("p_kista").value, v: document.getElementById("p_v").value, vi: document.getElementById("p_vi").value, vii: document.getElementById("p_vii").value, viii: document.getElementById("p_viii").value },
+            bookingTime: exactDateTime, 
+            deliveryDate: delDate 
         };
 
         if (currentSno <= bookData.length) { bookData[currentSno - 1] = customerData; } 
         else { bookData.push(customerData); maxSno = bookData.length + 1; }
         
         localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
-        document.getElementById("saveTimeLabel").innerText = "డెలివరీ: " + delDate;
+        document.getElementById("saveTimeLabel").innerText = "బుకింగ్: " + exactDateTime;
 
-        // Trigger the Audio Alarm
         scheduleDeliveryAlert(name, delDate);
 
         let btn = document.getElementById("saveBtn");
         btn.innerHTML = "సేవ్ అవుతోంది...";
 
         fetch(GOOGLE_SHEET_URL, {
-            method: "POST",
-            body: JSON.stringify(customerData)
+            method: "POST", body: JSON.stringify(customerData)
         })
         .then(response => {
             btn.innerHTML = "సేవ్ చేయబడింది!";
@@ -317,22 +309,18 @@
             
             document.getElementById("custName").value = data.name;
             document.getElementById("custMobile").value = data.mobile || "";
-            document.getElementById("deliveryDate").value = data.rawDeliveryDate || "";
-            document.getElementById("saveTimeLabel").innerText = data.rawDeliveryDate ? "డెలివరీ: " + data.rawDeliveryDate : "";
+            document.getElementById("deliveryDate").value = data.deliveryDate || "";
+            
+            if(data.bookingTime) {
+                document.getElementById("saveTimeLabel").innerText = "బుకింగ్: " + data.bookingTime;
+            } else {
+                document.getElementById("saveTimeLabel").innerText = "";
+            }
             
             window.checkMobileLength();
 
-            document.getElementById("s_a").value = data.shirt.a || ""; document.getElementById("s_b").value = data.shirt.b || "";
-            document.getElementById("s_c").value = data.shirt.c || ""; document.getElementById("s_d").value = data.shirt.d || "";
-            document.getElementById("s_e").value = data.shirt.e || ""; document.getElementById("s_f").value = data.shirt.f || "";
-            document.getElementById("s_g").value = data.shirt.g || ""; document.getElementById("s_h").value = data.shirt.h || "";
-            document.getElementById("s_i").value = data.shirt.i || ""; document.getElementById("s_j").value = data.shirt.j || "";
-
-            document.getElementById("p_i").value = data.pant.i || ""; document.getElementById("p_ii").value = data.pant.ii || "";
-            document.getElementById("p_iii").value = data.pant.iii || ""; document.getElementById("p_iv").value = data.pant.iv || "";
-            document.getElementById("p_kista").value = data.pant.kista || ""; 
-            document.getElementById("p_v").value = data.pant.v || ""; 
-            document.getElementById("p_vi").value = data.pant.vi || ""; document.getElementById("p_vii").value = data.pant.vii || ""; document.getElementById("p_viii").value = data.pant.viii || "";
+            document.getElementById("s_a").value = data.shirt.a || ""; document.getElementById("s_b").value = data.shirt.b || ""; document.getElementById("s_c").value = data.shirt.c || ""; document.getElementById("s_d").value = data.shirt.d || ""; document.getElementById("s_e").value = data.shirt.e || ""; document.getElementById("s_f").value = data.shirt.f || ""; document.getElementById("s_g").value = data.shirt.g || ""; document.getElementById("s_h").value = data.shirt.h || ""; document.getElementById("s_i").value = data.shirt.i || ""; document.getElementById("s_j").value = data.shirt.j || "";
+            document.getElementById("p_i").value = data.pant.i || ""; document.getElementById("p_ii").value = data.pant.ii || ""; document.getElementById("p_iii").value = data.pant.iii || ""; document.getElementById("p_iv").value = data.pant.iv || ""; document.getElementById("p_kista").value = data.pant.kista || ""; document.getElementById("p_v").value = data.pant.v || ""; document.getElementById("p_vi").value = data.pant.vi || ""; document.getElementById("p_vii").value = data.pant.vii || ""; document.getElementById("p_viii").value = data.pant.viii || "";
         } else { alert("ఈ S.No తో రికార్డు లేదు."); }
     };
 
@@ -352,21 +340,30 @@
             let canvas = await html2canvas(document.getElementById("receiptCard"), { scale: 2 });
             canvas.toBlob(async function(blob) {
                 let file = new File([blob], "LalithaSriTailors.png", { type: "image/png" });
-                if (navigator.share) { await navigator.share({ title: 'రసీదు', files: [file] }); } 
-                else { alert("మీ ఫోన్ ఇమేజ్ షేరింగ్‌కు సపోర్ట్ చేయడం లేదు."); }
+                
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({ title: 'రసీదు', files: [file] });
+                } else {
+                    throw new Error("Share API Blocked"); 
+                }
             });
-        } catch (error) { alert("ఇమేజ్ జనరేట్ చేయడంలో ఎర్రర్."); }
+        } catch (error) { 
+            let canvas = await html2canvas(document.getElementById("receiptCard"), { scale: 2 });
+            let link = document.createElement('a');
+            link.download = `Receipt_${name}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+            alert("✅ రసీదు ఫోన్‌ గ్యాలరీలోకి డౌన్‌లోడ్ చేయబడింది! (Image Saved to Gallery. Share from there).");
+        }
     };
 
     window.exportToExcel = function() {
         if (bookData.length === 0) { alert("డేటా లేదు!"); return; }
 
         let excelFormattedData = bookData.map(c => ({
-            "S.No": c.sno, "కస్టమర్ పేరు": c.name, "మొబైల్": c.mobile, "డెలివరీ తేదీ": c.rawDeliveryDate, "సేవ్ చేసిన సమయం": c.timestamp,
-            "షర్ట్: పొడవు": c.shirt.a, "షర్ట్: భుజం": c.shirt.b, "షర్ట్: చేతి పొడవు": c.shirt.c, "షర్ట్: చేతి లూజు": c.shirt.d,
-            "షర్ట్: చంక": c.shirt.e, "షర్ట్: ఛాతీ": c.shirt.f, "షర్ట్: పై భాగం": c.shirt.g, "షర్ట్: మధ్య": c.shirt.h, "షర్ట్: కింది": c.shirt.i, "షర్ట్: కాలర్": c.shirt.j,
-            "ప్యాంట్: పొడవు": c.pant.i, "ప్యాంట్: జాయింట్ పొడవు": c.pant.ii, "ప్యాంట్: నడుము": c.pant.iii, "ప్యాంట్: హిప్": c.pant.iv,
-            "ప్యాంట్: కిస్తా": c.pant.kista, "ప్యాంట్: తొడ": c.pant.v, "ప్యాంట్: మోకాలు": c.pant.vi, "ప్యాంట్: జాయింట్ లెక్": c.pant.vii, "ప్యాంట్: పాదం": c.pant.viii
+            "S.No": c.sno, "కస్టమర్ పేరు": c.name, "మొబైల్": c.mobile, "బుకింగ్ సమయం": c.bookingTime, "డెలివరీ తేదీ": c.deliveryDate, 
+            "షర్ట్: పొడవు": c.shirt.a, "షర్ట్: భుజం": c.shirt.b, "షర్ట్: చేతి పొడవు": c.shirt.c, "షర్ట్: చేతి లూజు": c.shirt.d, "షర్ట్: చంక": c.shirt.e, "షర్ట్: ఛాతీ": c.shirt.f, "షర్ట్: పై భాగం": c.shirt.g, "షర్ట్: మధ్య": c.shirt.h, "షర్ట్: కింది": c.shirt.i, "షర్ట్: కాలర్": c.shirt.j,
+            "ప్యాంట్: పొడవు": c.pant.i, "ప్యాంట్: జాయింట్ పొడవు": c.pant.ii, "ప్యాంట్: నడుము": c.pant.iii, "ప్యాంట్: హిప్": c.pant.iv, "ప్యాంట్: కిస్తా": c.pant.kista, "ప్యాంట్: తొడ": c.pant.v, "ప్యాంట్: మోకాలు": c.pant.vi, "ప్యాంట్: జాయింట్ లెక్": c.pant.vii, "ప్యాంట్: పాదం": c.pant.viii
         }));
 
         let worksheet = XLSX.utils.json_to_sheet(excelFormattedData);
@@ -376,4 +373,4 @@
     };
 </script>
 </body>
-    </html>
+                                                              </html>
