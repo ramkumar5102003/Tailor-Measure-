@@ -17,10 +17,14 @@
         
         .header { text-align: center; margin-bottom: 5px; position: relative; }
         .shop-name { color: #d32f2f; font-size: 26px; margin: 10px 0 5px 0; font-weight: bold; }
-        .subtitle { color: #555; font-size: 14px; margin-bottom: 5px; }
-        .btn-change-pin { background: #ff9800; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: bold; }
+        .subtitle { color: #555; font-size: 14px; margin-bottom: 10px; }
         
-        #syncStatus { text-align: center; font-size: 12px; font-weight: bold; padding: 5px; margin-bottom: 10px; border-radius: 5px; background: #e3f2fd; color: #1565c0; }
+        .top-btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+        .btn-small { border: none; padding: 6px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: bold; color: #fff; }
+        .btn-pin { background: #ff9800; }
+        .btn-sync { background: #17a2b8; }
+        
+        #syncStatus { text-align: center; font-size: 12px; font-weight: bold; padding: 5px; margin-bottom: 10px; border-radius: 5px; background: #e3f2fd; color: #1565c0; transition: 0.3s; }
         
         .nav-bar { display: flex; justify-content: space-between; align-items: center; background: #e9ecef; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
         .nav-bar input { width: 60px; padding: 8px; text-align: center; font-weight: bold; }
@@ -43,7 +47,7 @@
         button { width: 100%; padding: 14px; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; color: #fff; }
         .btn-success { background-color: #28a745; flex: 1; }
         .btn-share { background-color: #25D366; flex: 1; } 
-        .btn-new { background-color: #17a2b8; margin-top: 10px; }
+        .btn-new { background-color: #6c757d; margin-top: 10px; }
         .btn-excel { background-color: #107c41; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 10px; }
         
         #receiptWrapper { position: absolute; left: -9999px; top: 0; }
@@ -69,7 +73,11 @@
     <div class="header">
         <div class="shop-name">లలితా శ్రీ టైలర్స్</div>
         <div class="subtitle">(Lalitha Sri Tailors)</div>
-        <button class="btn-change-pin" onclick="window.changeAppPin()">⚙️ పిన్ మార్చండి</button>
+        
+        <div class="top-btn-group">
+            <button class="btn-small btn-pin" onclick="window.changeAppPin()">⚙️ పిన్ మార్చండి</button>
+            <button class="btn-small btn-sync" onclick="window.syncDataFromCloud(false)">🔄 రిఫ్రెష్ (Sync)</button>
+        </div>
     </div>
 
     <div id="syncStatus">☁️ క్లౌడ్ డేటా చెక్ చేయబడుతోంది...</div>
@@ -155,36 +163,66 @@
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbx3iJyEKnoUwkqOBhQUEsdmwvOJlbOtNOVoi2eKMglOnDjF_YR2nkM7My4zzxJ9XmDy/exec";
 
     let currentSno = 1;
-    let maxSno = 1;
     let bookData = JSON.parse(localStorage.getItem("lalithaTailorBook")) || [];
     let savedPin = localStorage.getItem("lalithaAppPin") || "4443";
+    let isEditingOldRecord = false; 
     
-    async function syncDataFromCloud() {
+    function getNextAvailableSno() {
+        if(bookData.length === 0) return 1;
+        let usedSnos = bookData.map(b => parseInt(b.sno));
+        for(let i = 1; i <= usedSnos.length + 1; i++) {
+            if(!usedSnos.includes(i)) return i; 
+        }
+        return bookData.length + 1;
+    }
+
+    async function syncDataFromCloud(isSilent = false) {
+        let statusBox = document.getElementById("syncStatus");
+        
+        if (!isSilent) {
+            statusBox.innerText = "⏳ గూగుల్ షీట్ నుండి డేటా లోడ్ అవుతోంది... (Syncing)";
+            statusBox.style.background = "#fff3cd";
+            statusBox.style.color = "#856404";
+        }
+
         try {
-            let response = await fetch(GOOGLE_SHEET_URL);
+            let response = await fetch(GOOGLE_SHEET_URL + "?t=" + new Date().getTime());
             let cloudData = await response.json();
             
-            if(cloudData && cloudData.length > 0) {
+            if(cloudData && Array.isArray(cloudData)) {
                 bookData = cloudData; 
                 localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
-                maxSno = bookData.length + 1;
-                document.getElementById("syncStatus").innerText = "✅ క్లౌడ్‌తో సింక్ అయింది (Fully Synced)";
-                document.getElementById("syncStatus").style.background = "#e8f5e9";
-                document.getElementById("syncStatus").style.color = "#2e7d32";
-                window.startNewCustomer();
+                
+                statusBox.innerText = "✅ క్లౌడ్‌తో సింక్ అయింది (Fully Synced)";
+                statusBox.style.background = "#e8f5e9";
+                statusBox.style.color = "#2e7d32";
+                
+                if (isEditingOldRecord) {
+                    window.loadCustomerData(currentSno);
+                } else {
+                    window.startNewCustomer();
+                }
+                
+                setTimeout(() => { statusBox.innerText = "☁️ క్లౌడ్ డేటా అప్‌డేట్ చేయబడింది"; }, 3000);
             }
         } catch(e) {
-            document.getElementById("syncStatus").innerText = "⚠️ ఇంటర్నెట్ లేదు - ఆఫ్‌లైన్ (Offline Mode)";
-            document.getElementById("syncStatus").style.background = "#ffebee";
-            document.getElementById("syncStatus").style.color = "#c62828";
+            statusBox.innerText = "⚠️ సింక్ ఫెయిల్ అయింది. ఇంటర్నెట్ చెక్ చేయండి.";
+            statusBox.style.background = "#ffebee";
+            statusBox.style.color = "#c62828";
         }
     }
+
+    document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === 'visible' && document.getElementById("pinScreen").style.display === "none") {
+            syncDataFromCloud(true);
+        }
+    });
 
     window.unlockApp = function() {
         let enteredPin = document.getElementById("appPinInput").value;
         if(enteredPin === savedPin) {
             document.getElementById("pinScreen").style.display = "none";
-            syncDataFromCloud(); 
+            syncDataFromCloud(false); 
         } else {
             alert("తప్పు పిన్! (Wrong PIN)");
             document.getElementById("appPinInput").value = "";
@@ -218,14 +256,9 @@
         }
     };
 
-    maxSno = bookData.length + 1;
-    currentSno = maxSno;
-    document.getElementById("searchSno").value = currentSno;
-    window.checkMobileLength(); 
-
     window.startNewCustomer = function() {
-        maxSno = bookData.length + 1;
-        currentSno = maxSno;
+        isEditingOldRecord = false;
+        currentSno = getNextAvailableSno(); 
         document.getElementById("searchSno").value = currentSno;
         document.getElementById("custName").value = "";
         document.getElementById("custMobile").value = "";
@@ -276,8 +309,9 @@
             deliveryDate: delDate 
         };
 
-        if (currentSno <= bookData.length) { bookData[currentSno - 1] = customerData; } 
-        else { bookData.push(customerData); maxSno = bookData.length + 1; }
+        let existingIndex = bookData.findIndex(b => b.sno === currentSno);
+        if(existingIndex !== -1) { bookData[existingIndex] = customerData; } 
+        else { bookData.push(customerData); }
         
         localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
         document.getElementById("saveTimeLabel").innerText = "బుకింగ్: " + exactDateTime;
@@ -295,17 +329,19 @@
             setTimeout(() => { btn.innerHTML = "సేవ్ చేయండి"; window.startNewCustomer(); }, 1500);
         })
         .catch(e => {
-            alert("ఇంటర్నెట్ లేదు: క్లౌడ్‌లో సేవ్ కాలేదు. కానీ ఫోన్‌లో సేవ్ చేయబడింది.");
+            alert("ఇంటర్నెట్ లేదు. ఫోన్‌లో సురక్షితంగా సేవ్ చేయబడింది.");
             btn.innerHTML = "సేవ్ చేయండి";
             window.startNewCustomer();
         });
     };
 
     window.loadCustomerData = function(sno) {
-        if (sno > 0 && sno <= bookData.length) {
+        let existingIndex = bookData.findIndex(b => parseInt(b.sno) === parseInt(sno));
+        if (existingIndex !== -1) {
+            isEditingOldRecord = true;
             currentSno = sno;
             document.getElementById("searchSno").value = currentSno;
-            let data = bookData[currentSno - 1];
+            let data = bookData[existingIndex];
             
             document.getElementById("custName").value = data.name;
             document.getElementById("custMobile").value = data.mobile || "";
@@ -321,7 +357,10 @@
 
             document.getElementById("s_a").value = data.shirt.a || ""; document.getElementById("s_b").value = data.shirt.b || ""; document.getElementById("s_c").value = data.shirt.c || ""; document.getElementById("s_d").value = data.shirt.d || ""; document.getElementById("s_e").value = data.shirt.e || ""; document.getElementById("s_f").value = data.shirt.f || ""; document.getElementById("s_g").value = data.shirt.g || ""; document.getElementById("s_h").value = data.shirt.h || ""; document.getElementById("s_i").value = data.shirt.i || ""; document.getElementById("s_j").value = data.shirt.j || "";
             document.getElementById("p_i").value = data.pant.i || ""; document.getElementById("p_ii").value = data.pant.ii || ""; document.getElementById("p_iii").value = data.pant.iii || ""; document.getElementById("p_iv").value = data.pant.iv || ""; document.getElementById("p_kista").value = data.pant.kista || ""; document.getElementById("p_v").value = data.pant.v || ""; document.getElementById("p_vi").value = data.pant.vi || ""; document.getElementById("p_vii").value = data.pant.vii || ""; document.getElementById("p_viii").value = data.pant.viii || "";
-        } else { alert("ఈ S.No తో రికార్డు లేదు."); }
+        } else { 
+            alert("ఈ S.No తో రికార్డు లేదు. (Record not found)"); 
+            isEditingOldRecord = false;
+        }
     };
 
     window.goPrevious = function() { if (currentSno > 1) { window.loadCustomerData(currentSno - 1); } };
@@ -353,24 +392,24 @@
             link.download = `Receipt_${name}.png`;
             link.href = canvas.toDataURL("image/png");
             link.click();
-            alert("✅ రసీదు ఫోన్‌ గ్యాలరీలోకి డౌన్‌లోడ్ చేయబడింది! (Image Saved to Gallery. Share from there).");
+            alert("✅ రసీదు ఫోన్‌ గ్యాలరీలోకి డౌన్‌లోడ్ చేయబడింది! (Image Saved to Gallery).");
         }
     };
 
     window.exportToExcel = function() {
         if (bookData.length === 0) { alert("డేటా లేదు!"); return; }
-
         let excelFormattedData = bookData.map(c => ({
             "S.No": c.sno, "కస్టమర్ పేరు": c.name, "మొబైల్": c.mobile, "బుకింగ్ సమయం": c.bookingTime, "డెలివరీ తేదీ": c.deliveryDate, 
             "షర్ట్: పొడవు": c.shirt.a, "షర్ట్: భుజం": c.shirt.b, "షర్ట్: చేతి పొడవు": c.shirt.c, "షర్ట్: చేతి లూజు": c.shirt.d, "షర్ట్: చంక": c.shirt.e, "షర్ట్: ఛాతీ": c.shirt.f, "షర్ట్: పై భాగం": c.shirt.g, "షర్ట్: మధ్య": c.shirt.h, "షర్ట్: కింది": c.shirt.i, "షర్ట్: కాలర్": c.shirt.j,
             "ప్యాంట్: పొడవు": c.pant.i, "ప్యాంట్: జాయింట్ పొడవు": c.pant.ii, "ప్యాంట్: నడుము": c.pant.iii, "ప్యాంట్: హిప్": c.pant.iv, "ప్యాంట్: కిస్తా": c.pant.kista, "ప్యాంట్: తొడ": c.pant.v, "ప్యాంట్: మోకాలు": c.pant.vi, "ప్యాంట్: జాయింట్ లెక్": c.pant.vii, "ప్యాంట్: పాదం": c.pant.viii
         }));
-
         let worksheet = XLSX.utils.json_to_sheet(excelFormattedData);
         let workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
         XLSX.writeFile(workbook, "LalithaSri_Tailors_Backup.xlsx");
     };
+    
+    currentSno = getNextAvailableSno();
 </script>
 </body>
-                                                              </html>
+            </html>
