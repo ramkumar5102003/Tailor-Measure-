@@ -168,7 +168,7 @@
     let isEditingOldRecord = false; 
     
     function getNextAvailableSno() {
-        if(bookData.length === 0) return 1;
+        if(!bookData || bookData.length === 0) return 1;
         let usedSnos = bookData.map(b => parseInt(b.sno));
         for(let i = 1; i <= usedSnos.length + 1; i++) {
             if(!usedSnos.includes(i)) return i; 
@@ -178,7 +178,6 @@
 
     async function syncDataFromCloud(isSilent = false) {
         let statusBox = document.getElementById("syncStatus");
-        
         if (!isSilent) {
             statusBox.innerText = "⏳ గూగుల్ షీట్ నుండి డేటా లోడ్ అవుతోంది... (Syncing)";
             statusBox.style.background = "#fff3cd";
@@ -189,7 +188,7 @@
             let response = await fetch(GOOGLE_SHEET_URL + "?t=" + new Date().getTime());
             let cloudData = await response.json();
             
-            if(cloudData && Array.isArray(cloudData)) {
+            if(Array.isArray(cloudData)) {
                 bookData = cloudData; 
                 localStorage.setItem("lalithaTailorBook", JSON.stringify(bookData));
                 
@@ -197,7 +196,8 @@
                 statusBox.style.background = "#e8f5e9";
                 statusBox.style.color = "#2e7d32";
                 
-                if (isEditingOldRecord) {
+                let stillExists = bookData.some(b => parseInt(b.sno) === parseInt(currentSno));
+                if (isEditingOldRecord && stillExists) {
                     window.loadCustomerData(currentSno);
                 } else {
                     window.startNewCustomer();
@@ -206,7 +206,7 @@
                 setTimeout(() => { statusBox.innerText = "☁️ క్లౌడ్ డేటా అప్‌డేట్ చేయబడింది"; }, 3000);
             }
         } catch(e) {
-            statusBox.innerText = "⚠️ సింక్ ఫెయిల్ అయింది. ఇంటర్నెట్ చెక్ చేయండి.";
+            statusBox.innerText = "⚠️ ఇంటర్నెట్ లేదా కనెక్షన్ ఎర్రర్.";
             statusBox.style.background = "#ffebee";
             statusBox.style.color = "#c62828";
         }
@@ -300,16 +300,17 @@
         if (mobile.length !== 10) { alert("ఖచ్చితంగా 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి."); return; }
 
         let exactDateTime = new Date().toLocaleString('en-IN'); 
+        let safeSno = parseInt(currentSno);
 
         let customerData = {
-            sno: currentSno, name: name, mobile: mobile,
+            sno: safeSno, name: name, mobile: mobile,
             shirt: { a: document.getElementById("s_a").value, b: document.getElementById("s_b").value, c: document.getElementById("s_c").value, d: document.getElementById("s_d").value, e: document.getElementById("s_e").value, f: document.getElementById("s_f").value, g: document.getElementById("s_g").value, h: document.getElementById("s_h").value, i: document.getElementById("s_i").value, j: document.getElementById("s_j").value },
             pant: { i: document.getElementById("p_i").value, ii: document.getElementById("p_ii").value, iii: document.getElementById("p_iii").value, iv: document.getElementById("p_iv").value, kista: document.getElementById("p_kista").value, v: document.getElementById("p_v").value, vi: document.getElementById("p_vi").value, vii: document.getElementById("p_vii").value, viii: document.getElementById("p_viii").value },
             bookingTime: exactDateTime, 
             deliveryDate: delDate 
         };
 
-        let existingIndex = bookData.findIndex(b => b.sno === currentSno);
+        let existingIndex = bookData.findIndex(b => parseInt(b.sno) === safeSno);
         if(existingIndex !== -1) { bookData[existingIndex] = customerData; } 
         else { bookData.push(customerData); }
         
@@ -321,25 +322,33 @@
         let btn = document.getElementById("saveBtn");
         btn.innerHTML = "సేవ్ అవుతోంది...";
 
+        // THE ANTI-BLOCKER: bypasses Android CORS security blocking
         fetch(GOOGLE_SHEET_URL, {
-            method: "POST", body: JSON.stringify(customerData)
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "text/plain"
+            },
+            body: JSON.stringify(customerData)
         })
-        .then(response => {
+        .then(() => {
             btn.innerHTML = "సేవ్ చేయబడింది!";
             setTimeout(() => { btn.innerHTML = "సేవ్ చేయండి"; window.startNewCustomer(); }, 1500);
         })
         .catch(e => {
-            alert("ఇంటర్నెట్ లేదు. ఫోన్‌లో సురక్షితంగా సేవ్ చేయబడింది.");
+            alert("ఎర్రర్: దయచేసి ఇంటర్నెట్ చెక్ చేయండి.");
             btn.innerHTML = "సేవ్ చేయండి";
             window.startNewCustomer();
         });
     };
 
     window.loadCustomerData = function(sno) {
-        let existingIndex = bookData.findIndex(b => parseInt(b.sno) === parseInt(sno));
+        let safeSno = parseInt(sno);
+        let existingIndex = bookData.findIndex(b => parseInt(b.sno) === safeSno);
+        
         if (existingIndex !== -1) {
             isEditingOldRecord = true;
-            currentSno = sno;
+            currentSno = safeSno;
             document.getElementById("searchSno").value = currentSno;
             let data = bookData[existingIndex];
             
@@ -397,7 +406,7 @@
     };
 
     window.exportToExcel = function() {
-        if (bookData.length === 0) { alert("డేటా లేదు!"); return; }
+        if (!bookData || bookData.length === 0) { alert("డేటా లేదు!"); return; }
         let excelFormattedData = bookData.map(c => ({
             "S.No": c.sno, "కస్టమర్ పేరు": c.name, "మొబైల్": c.mobile, "బుకింగ్ సమయం": c.bookingTime, "డెలివరీ తేదీ": c.deliveryDate, 
             "షర్ట్: పొడవు": c.shirt.a, "షర్ట్: భుజం": c.shirt.b, "షర్ట్: చేతి పొడవు": c.shirt.c, "షర్ట్: చేతి లూజు": c.shirt.d, "షర్ట్: చంక": c.shirt.e, "షర్ట్: ఛాతీ": c.shirt.f, "షర్ట్: పై భాగం": c.shirt.g, "షర్ట్: మధ్య": c.shirt.h, "షర్ట్: కింది": c.shirt.i, "షర్ట్: కాలర్": c.shirt.j,
@@ -412,4 +421,4 @@
     currentSno = getNextAvailableSno();
 </script>
 </body>
-            </html>
+    </html>
